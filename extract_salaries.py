@@ -7,7 +7,6 @@ import csv
 from forex_python.converter import CurrencyRates
 import time
 from datetime import datetime
-import prawcore
 
 # Load environment variables from .env file
 load_dotenv()
@@ -53,17 +52,17 @@ def convert_to_annual_salary(salary, period, currency='USD'):
 
 def extract_salary_details(text):
     patterns = {
-        'hourly': r'\$([0-9,]+(\.[0-9]+)?)\s*/\s*hour',
-        'weekly': r'\$([0-9,]+(\.[0-9]+)?)\s*/\s*week',
-        'monthly': r'\$([0-9,]+(\.[0-9]+)?)\s*/\s*month',
-        'bi-weekly': r'\$([0-9,]+(\.[0-9]+)?)\s*/\s*bi-week',
-        'yearly': r'\$([0-9,]+(\.[0-9]+)?)\s*/\s*year',
-        'annual': r'\$([0-9,]+(\.[0-9]+)?)\s*(?:per\s*)?year'
+        'hourly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*hour',
+        'weekly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*week',
+        'monthly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*month',
+        'bi-weekly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*bi-week',
+        'yearly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*year',
+        'annual': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per\s*)?year'
     }
     for period, pattern in patterns.items():
         match = re.search(pattern, text)
         if match:
-            salary = float(match.group(1).replace(',', ''))
+            salary = float(match.group(1))
             return convert_to_annual_salary(salary, period)
     return None
 
@@ -77,7 +76,7 @@ def extract_additional_details(text):
     job_title = re.search(job_title_pattern, text)
 
     return {
-        'Location': location.group(1) if location else 'USA',
+        'Location': location.group(1) if location else 'N/A',
         'Experience (Years)': experience.group(1) if experience else 'N/A',
         'Job Title': job_title.group(1) if job_title else 'N/A'
     }
@@ -98,7 +97,7 @@ def get_vague_salary_from_gpt(text):
             max_tokens=100,
             temperature=0.5
         )
-        return response.choices[0].message['content'].strip()
+        return response.choices[0].message.content.strip()
     except openai.RateLimitError:
         print("Rate limit exceeded. Waiting for 60 seconds before retrying...")
         time.sleep(60)
@@ -118,20 +117,11 @@ def extract_vague_salary_details(text):
             return get_vague_salary_from_gpt(text)
     return None
 
-def is_relevant_comment(comment_text):
-    relevant_keywords = [
-        'CPA', 'accounting', 'accountant', 'auditor', 'tax', 'bookkeeping',
-        'financial analyst', 'audit', 'assurance', 'consulting', 'Big 4'
-    ]
-    for keyword in relevant_keywords:
-        if keyword.lower() in comment_text.lower():
-            return True
-    return False
-
 def scrape_subreddits(subreddits, limit=300):
     salary_data = []
     vague_data = []
     comment_count = 0
+
     for subreddit_name in subreddits:
         try:
             subreddit = reddit.subreddit(subreddit_name)
@@ -139,9 +129,6 @@ def scrape_subreddits(subreddits, limit=300):
                 if comment_count >= limit:
                     break
                 comment_text = comment.body
-                comment_date = datetime.utcfromtimestamp(comment.created_utc)
-                if not is_relevant_comment(comment_text) or comment_date.year < 2018:
-                    continue
                 print(f"Checking comment: {comment_text}")  # Debugging print
                 salary = extract_salary_details(comment_text)
                 if salary:
@@ -152,11 +139,11 @@ def scrape_subreddits(subreddits, limit=300):
                         'Location': additional_details['Location'],
                         'Experience (Years)': additional_details['Experience (Years)'],
                         'Job Title': additional_details['Job Title'],
-                        'Date': comment_date.strftime('%Y-%m-%d'),
+                        'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
                         'Salary Source': 'Explicit',
                         'Additional Information': comment.link_permalink,
-                        'Text': comment_text,
-                        'URL': f"https://reddit.com{comment.permalink}"
+                        'URL': f"https://reddit.com{comment.permalink}",
+                        'Trigger Text': comment_text
                     })
                     comment_count += 1
                 else:
@@ -168,24 +155,23 @@ def scrape_subreddits(subreddits, limit=300):
                             'Location': additional_details['Location'],
                             'Experience (Years)': additional_details['Experience (Years)'],
                             'Job Title': additional_details['Job Title'],
-                            'Date': comment_date.strftime('%Y-%m-%d'),
+                            'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
                             'Salary Source': 'Vague',
                             'Additional Information': comment.link_permalink,
-                            'Text': comment_text,
-                            'URL': f"https://reddit.com{comment.permalink}"
+                            'URL': f"https://reddit.com{comment.permalink}",
+                            'Trigger Text': comment_text
                         })
                         comment_count += 1
-        except prawcore.exceptions.NotFound:
-            print(f"Subreddit {subreddit_name} not found. Skipping...")
         except prawcore.exceptions.Forbidden:
-            print(f"Access to subreddit {subreddit_name} is forbidden. Skipping...")
-        except Exception as e:
-            print(f"An error occurred with subreddit {subreddit_name}: {e}. Skipping...")
+            print(f"Skipping subreddit {subreddit_name} due to forbidden access.")
+        except prawcore.exceptions.NotFound:
+            print(f"Subreddit {subreddit_name} not found.")
+    
     return salary_data, vague_data
 
 def save_to_csv(data, filename):
     if not data:
-        print(f"No data found for {filename}")  # Debugging print
+        print("No salary data found.")  # Debugging print
         return
 
     keys = data[0].keys()
@@ -196,15 +182,14 @@ def save_to_csv(data, filename):
 
 # Main script
 subreddits = [
-    'accounting', 'finance', 'FinancialCareers', 'CareerGuidance', 'JobAdvice',
-    'PersonalFinance', 'Work', 'AskReddit', 'Entrepreneur', 'MBA', 'Salary',
-    'InsuranceProfessional', 'tax', 'cpa', 'freelance', 'big4', 'thebig4accountant',
-    'accountingfirms', 'taxpros', 'publicaccounting', 'publicaccountants', 'fpa',
-    'togethercpa', 'antiwork', 'usajobs', 'finra', 'internalaudit',
-    'AccountingStudents', 'Bookkeeping', 'FinancialPlanning', 'Investing', 'Stocks',
-    'CreditCards', 'Budget', 'FinancialIndependence', 'Consulting', 'Business', 
-    'SmallBusiness', 'Sales', 'Marketing', 'HumanResources', 'Jobs', 'Resume', 
-    'Interviews'
+    'accounting', 'finance', 'FinancialCareers', 'CareerGuidance', 'JobAdvice', 
+    'PersonalFinance', 'Work', 'AskReddit', 'Entrepreneur', 'MBA', 'Salary', 
+    'InsuranceProfessional', 'tax', 'cpa', 'freelance', 'big4', 'thebig4accountant', 
+    'accountingfirms', 'taxpros', 'publicaccounting', 'publicaccountants', 'fpa', 
+    'togethercpa', 'antiwork', 'usajobs', 'finra', 'internalaudit', 'AccountingStudents', 
+    'Bookkeeping', 'FinancialPlanning', 'Investing', 'Stocks', 'CreditCards', 'Budget', 
+    'FinancialIndependence', 'Consulting', 'Business', 'SmallBusiness', 'Sales', 'Marketing', 
+    'HumanResources', 'Jobs', 'Resume', 'Interviews'
 ]
 
 explicit_salary_data, vague_salary_data = scrape_subreddits(subreddits, limit=300)
