@@ -77,7 +77,7 @@ def extract_additional_details(text):
     job_title = re.search(job_title_pattern, text)
 
     return {
-        'Location': location.group(1) if location else 'N/A',
+        'Location': location.group(1) if location else 'USA',
         'Experience (Years)': experience.group(1) if experience else 'N/A',
         'Job Title': job_title.group(1) if job_title else 'N/A'
     }
@@ -118,6 +118,16 @@ def extract_vague_salary_details(text):
             return get_vague_salary_from_gpt(text)
     return None
 
+def is_relevant_comment(comment_text):
+    relevant_keywords = [
+        'CPA', 'accounting', 'accountant', 'auditor', 'tax', 'bookkeeping',
+        'financial analyst', 'audit', 'assurance', 'consulting', 'Big 4'
+    ]
+    for keyword in relevant_keywords:
+        if keyword.lower() in comment_text.lower():
+            return True
+    return False
+
 def scrape_subreddits(subreddits, limit=300):
     salary_data = []
     vague_data = []
@@ -129,6 +139,9 @@ def scrape_subreddits(subreddits, limit=300):
                 if comment_count >= limit:
                     break
                 comment_text = comment.body
+                comment_date = datetime.utcfromtimestamp(comment.created_utc)
+                if not is_relevant_comment(comment_text) or comment_date.year < 2018:
+                    continue
                 print(f"Checking comment: {comment_text}")  # Debugging print
                 salary = extract_salary_details(comment_text)
                 if salary:
@@ -139,9 +152,10 @@ def scrape_subreddits(subreddits, limit=300):
                         'Location': additional_details['Location'],
                         'Experience (Years)': additional_details['Experience (Years)'],
                         'Job Title': additional_details['Job Title'],
-                        'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
+                        'Date': comment_date.strftime('%Y-%m-%d'),
                         'Salary Source': 'Explicit',
                         'Additional Information': comment.link_permalink,
+                        'Text': comment_text,
                         'URL': f"https://reddit.com{comment.permalink}"
                     })
                     comment_count += 1
@@ -154,9 +168,10 @@ def scrape_subreddits(subreddits, limit=300):
                             'Location': additional_details['Location'],
                             'Experience (Years)': additional_details['Experience (Years)'],
                             'Job Title': additional_details['Job Title'],
-                            'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
+                            'Date': comment_date.strftime('%Y-%m-%d'),
                             'Salary Source': 'Vague',
                             'Additional Information': comment.link_permalink,
+                            'Text': comment_text,
                             'URL': f"https://reddit.com{comment.permalink}"
                         })
                         comment_count += 1
@@ -187,8 +202,9 @@ subreddits = [
     'accountingfirms', 'taxpros', 'publicaccounting', 'publicaccountants', 'fpa',
     'togethercpa', 'antiwork', 'usajobs', 'finra', 'internalaudit',
     'AccountingStudents', 'Bookkeeping', 'FinancialPlanning', 'Investing', 'Stocks',
-    'CreditCards', 'Budget', 'FinancialIndependence', 'Consulting', 'Business',
-    'SmallBusiness', 'Sales', 'Marketing', 'HumanResources', 'Jobs', 'Resume', 'Interviews'
+    'CreditCards', 'Budget', 'FinancialIndependence', 'Consulting', 'Business', 
+    'SmallBusiness', 'Sales', 'Marketing', 'HumanResources', 'Jobs', 'Resume', 
+    'Interviews'
 ]
 
 explicit_salary_data, vague_salary_data = scrape_subreddits(subreddits, limit=300)
