@@ -21,8 +21,8 @@ reddit = praw.Reddit(
 
 # Fetch public data
 try:
-    print("Fetching public data from r/learnpython...")
-    for submission in reddit.subreddit('learnpython').hot(limit=5):
+    print("Fetching public data from r/accounting...")
+    for submission in reddit.subreddit('accounting').hot(limit=5):
         print(submission.title)
 except Exception as e:
     print(f"Error fetching public data: {e}")

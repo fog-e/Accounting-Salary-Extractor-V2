@@ -19,13 +19,16 @@ reddit = praw.Reddit(
     redirect_uri=REDIRECT_URI
 )
 
-# Get the authorization URL
-auth_url = reddit.auth.url(['identity'], 'uniqueKey', 'permanent')
+# Generate the authorization URL using detailed scopes
+auth_url = reddit.auth.url(['identity', 'read'], state='uniqueKey', duration='permanent')
 print(f"Visit this URL to authorize: {auth_url}")
 
-# After authorizing, you will get a code
+# Capture the code from the URL and use it to obtain the refresh token
 code = input("Enter the code from the URL: ")
 
 # Obtain the refresh token
-refresh_token = reddit.auth.authorize(code)
-print(f"Your refresh token is: {refresh_token}")
+try:
+    refresh_token = reddit.auth.authorize(code)
+    print(f"Refresh token: {refresh_token}")
+except Exception as e:
+    print(f"Error obtaining refresh token: {e}")
