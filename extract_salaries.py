@@ -6,6 +6,7 @@ import re
 import csv
 from forex_python.converter import CurrencyRates
 import time
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -51,12 +52,12 @@ def convert_to_annual_salary(salary, period, currency='USD'):
 
 def extract_salary_details(text):
     patterns = {
-        'hourly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*hour',
-        'weekly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*week',
-        'monthly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*month',
-        'bi-weekly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*bi-week',
-        'yearly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*year',
-        'annual': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per\s*)?year'
+        'hourly': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*hour',
+        'weekly': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*week',
+        'monthly': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*month',
+        'bi-weekly': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*bi-?week',
+        'yearly': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*year',
+        'annual': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*year'
     }
     for period, pattern in patterns.items():
         match = re.search(pattern, text, re.IGNORECASE)
@@ -87,7 +88,7 @@ def get_vague_salary_from_gpt(text):
         "Response: "
     )
     try:
-        response = client.chat_completions.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
@@ -109,10 +110,12 @@ def extract_vague_salary_details(text):
     specific_patterns = [
         r"I make twice as much as I did as a teacher",
         r"I make three times what I used to earn as a janitor",
-        r"My salary is half of what it was when I worked in retail"
+        r"My salary is half of what it was when I worked in retail",
+        r"I make double what I made as a cashier",
+        r"I make half of what I earned as a manager"
     ]
     for pattern in specific_patterns:
-        if re.search(pattern, text):
+        if re.search(pattern, text, re.IGNORECASE):
             return get_vague_salary_from_gpt(text)
     return None
 
@@ -144,6 +147,7 @@ def scrape_subreddit(subreddit_name, limit=300):
         else:
             vague_salary = extract_vague_salary_details(comment_text)
             if vague_salary:
+                print(f"Extracted vague salary: {vague_salary}")  # Debugging print
                 additional_details = extract_additional_details(comment_text)
                 vague_data.append({
                     'Vague Salary': vague_salary,
