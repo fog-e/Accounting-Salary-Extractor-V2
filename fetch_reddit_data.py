@@ -41,7 +41,8 @@ def fetch_top_posts_and_comments(subreddit_name, limit=10):
                 "score": post.score,
                 "url": post.url,
                 "created": post_time.strftime('%Y-%m-%d %H:%M:%S'),
-                "comments": []
+                "comments": [],
+                "theme": "Victorian Accountant"
             }
 
             # Fetch the top comments for the post
@@ -51,7 +52,8 @@ def fetch_top_posts_and_comments(subreddit_name, limit=10):
                 comment_data = {
                     "body": comment.body,
                     "score": comment.score,
-                    "created": datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d %H:%M:%S')
+                    "created": datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d %H:%M:%S'),
+                    "theme": "Victorian Accountant"
                 }
                 post_data["comments"].append(comment_data)
 
