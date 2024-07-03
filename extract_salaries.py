@@ -59,9 +59,9 @@ def extract_salary_details(text):
         'annual': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per\s*)?year'
     }
     for period, pattern in patterns.items():
-        match = re.search(pattern, text)
+        match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            salary = float(match.group(1))
+            salary = float(match.group(1).replace(',', ''))
             return convert_to_annual_salary(salary, period)
     return None
 
@@ -87,7 +87,7 @@ def get_vague_salary_from_gpt(text):
         "Response: "
     )
     try:
-        response = client.chat.completions.create(
+        response = client.chat_completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
@@ -135,7 +135,7 @@ def scrape_subreddit(subreddit_name, limit=300):
                 'Location': additional_details['Location'],
                 'Experience (Years)': additional_details['Experience (Years)'],
                 'Job Title': additional_details['Job Title'],
-                'Date': comment.created_utc,
+                'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
                 'Salary Source': 'Explicit',
                 'Additional Information': comment.link_permalink,
                 'URL': f"https://reddit.com{comment.permalink}"
@@ -150,7 +150,7 @@ def scrape_subreddit(subreddit_name, limit=300):
                     'Location': additional_details['Location'],
                     'Experience (Years)': additional_details['Experience (Years)'],
                     'Job Title': additional_details['Job Title'],
-                    'Date': comment.created_utc,
+                    'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
                     'Salary Source': 'Vague',
                     'Additional Information': comment.link_permalink,
                     'URL': f"https://reddit.com{comment.permalink}"
