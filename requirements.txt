@@ -1,0 +1,3 @@
+praw
+forex-python
+python-dotenv
