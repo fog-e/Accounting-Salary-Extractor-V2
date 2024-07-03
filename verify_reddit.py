@@ -1,6 +1,6 @@
 import os
-from dotenv import load_dotenv
 import praw
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
@@ -19,17 +19,10 @@ reddit = praw.Reddit(
     refresh_token=REFRESH_TOKEN
 )
 
-# Fetch public data
-try:
-    print("Fetching public data from r/accounting...")
-    for submission in reddit.subreddit('accounting').hot(limit=5):
-        print(submission.title)
-except Exception as e:
-    print(f"Error fetching public data: {e}")
+# Fetch a sample subreddit to verify connection
+subreddit = reddit.subreddit("accounting")
+print(f"Authenticated as {reddit.user.me()}")
+print(f"Fetching public data from {subreddit.display_name}...")
 
-# Verify authentication
-try:
-    user = reddit.user.me()
-    print(f"Authenticated as {user}")
-except Exception as e:
-    print(f"Authentication failed: {e}")
+for submission in subreddit.hot(limit=5):
+    print(submission.title)
