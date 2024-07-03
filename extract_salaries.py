@@ -7,6 +7,7 @@ import csv
 from forex_python.converter import CurrencyRates
 import time
 from datetime import datetime
+import prawcore  # Add this import to handle prawcore exceptions
 
 # Load environment variables from .env file
 load_dotenv()
@@ -52,17 +53,17 @@ def convert_to_annual_salary(salary, period, currency='USD'):
 
 def extract_salary_details(text):
     patterns = {
-        'hourly': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*hour',
-        'weekly': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*week',
-        'monthly': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*month',
-        'bi-weekly': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*bi-?week',
-        'yearly': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*year',
-        'annual': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per|an)?\s*year'
+        'hourly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*hour',
+        'weekly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*week',
+        'monthly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*month',
+        'bi-weekly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*bi-week',
+        'yearly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*year',
+        'annual': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per\s*)?year'
     }
     for period, pattern in patterns.items():
-        match = re.search(pattern, text, re.IGNORECASE)
+        match = re.search(pattern, text)
         if match:
-            salary = float(match.group(1).replace(',', ''))
+            salary = float(match.group(1))
             return convert_to_annual_salary(salary, period)
     return None
 
@@ -120,46 +121,51 @@ def extract_vague_salary_details(text):
 def scrape_subreddits(subreddits, limit=300):
     salary_data = []
     vague_data = []
-    comment_count = 0
-
     for subreddit_name in subreddits:
-        subreddit = reddit.subreddit(subreddit_name)
-        for comment in subreddit.comments(limit=None):
-            if comment_count >= limit:
-                break
-            comment_text = comment.body
-            print(f"Checking comment: {comment_text}")  # Debugging print
-            salary = extract_salary_details(comment_text)
-            if salary:
-                print(f"Extracted salary: {salary}")  # Debugging print
-                additional_details = extract_additional_details(comment_text)
-                salary_data.append({
-                    'Salary (USD)': salary,
-                    'Location': additional_details['Location'],
-                    'Experience (Years)': additional_details['Experience (Years)'],
-                    'Job Title': additional_details['Job Title'],
-                    'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
-                    'Salary Source': 'Explicit',
-                    'Additional Information': comment.link_permalink,
-                    'URL': f"https://reddit.com{comment.permalink}"
-                })
-                comment_count += 1
-            else:
-                vague_salary = extract_vague_salary_details(comment_text)
-                if vague_salary:
+        try:
+            subreddit = reddit.subreddit(subreddit_name)
+            comment_count = 0
+            for comment in subreddit.comments(limit=None):
+                if comment_count >= limit:
+                    break
+                comment_text = comment.body
+                print(f"Checking comment: {comment_text}")  # Debugging print
+                salary = extract_salary_details(comment_text)
+                if salary:
+                    print(f"Extracted salary: {salary}")  # Debugging print
                     additional_details = extract_additional_details(comment_text)
-                    vague_data.append({
-                        'Vague Salary': vague_salary,
+                    salary_data.append({
+                        'Salary (USD)': salary,
                         'Location': additional_details['Location'],
                         'Experience (Years)': additional_details['Experience (Years)'],
                         'Job Title': additional_details['Job Title'],
                         'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
-                        'Salary Source': 'Vague',
+                        'Salary Source': 'Explicit',
                         'Additional Information': comment.link_permalink,
                         'URL': f"https://reddit.com{comment.permalink}"
                     })
                     comment_count += 1
-
+                else:
+                    vague_salary = extract_vague_salary_details(comment_text)
+                    if vague_salary:
+                        additional_details = extract_additional_details(comment_text)
+                        vague_data.append({
+                            'Vague Salary': vague_salary,
+                            'Location': additional_details['Location'],
+                            'Experience (Years)': additional_details['Experience (Years)'],
+                            'Job Title': additional_details['Job Title'],
+                            'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
+                            'Salary Source': 'Vague',
+                            'Additional Information': comment.link_permalink,
+                            'URL': f"https://reddit.com{comment.permalink}"
+                        })
+                        comment_count += 1
+        except prawcore.exceptions.NotFound:
+            print(f"Subreddit {subreddit_name} not found, skipping...")
+        except prawcore.exceptions.Forbidden:
+            print(f"Subreddit {subreddit_name} is forbidden, skipping...")
+        except Exception as e:
+            print(f"Error processing subreddit {subreddit_name}: {e}")
     return salary_data, vague_data
 
 def save_to_csv(data, filename):
@@ -173,15 +179,18 @@ def save_to_csv(data, filename):
         dict_writer.writeheader()
         dict_writer.writerows(data)
 
-# List of subreddits to scrape
+# Main script
 subreddits = [
-    'accounting', 'finance', 'FinancialCareers', 'CareerGuidance', 'JobAdvice', 'PersonalFinance', 'Work',
-    'AskReddit', 'Entrepreneur', 'MBA', 'Salary', 'InsuranceProfessional', 'tax', 'cpa', 'freelance',
-    'big4', 'thebig4accountant', 'accountingfirms', 'taxpros', 'publicaccounting', 'publicaccountants',
-    'fp&a', 'togethercpa', 'antiwork', 'usajobs', 'finra', 'internalaudit'
+    "accounting", "finance", "FinancialCareers", "CareerGuidance", "JobAdvice",
+    "PersonalFinance", "Work", "AskReddit", "Entrepreneur", "MBA", "Salary",
+    "InsuranceProfessional", "tax", "cpa", "freelance", "big4", "thebig4accountant",
+    "accountingfirms", "taxpros", "publicaccounting", "publicaccountants", "fpa",
+    "togethercpa", "antiwork", "usajobs", "finra", "internalaudit", "AccountingStudents",
+    "Bookkeeping", "FinancialPlanning", "Investing", "Stocks", "CreditCards", "Budget",
+    "FinancialIndependence", "Consulting", "Business", "SmallBusiness", "Sales",
+    "Marketing", "HumanResources", "Jobs", "Resume", "Interviews"
 ]
 
-# Main script
 explicit_salary_data, vague_salary_data = scrape_subreddits(subreddits, limit=300)
 save_to_csv(explicit_salary_data, 'explicit_salary_data.csv')
 save_to_csv(vague_salary_data, 'vague_salary_data.csv')
