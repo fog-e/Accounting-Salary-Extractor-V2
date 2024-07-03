@@ -15,3 +15,4 @@ Welcome to the **Accounting Salary Extractor** – your one-stop shop for scrapi
 ### Obtain Refresh Token:
 ```sh
 python obtain_refresh_token.py
+
