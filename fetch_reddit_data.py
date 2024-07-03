@@ -33,12 +33,14 @@ def fetch_top_posts_and_comments(subreddit_name, limit=10):
 
     data = []
     for post in top_posts:
-        if datetime.utcfromtimestamp(post.created_utc) > three_months_ago:
+        post_time = datetime.utcfromtimestamp(post.created_utc)
+        if post_time > three_months_ago:
+            print(f"Found post: {post.title} - {post_time}")
             post_data = {
                 "title": post.title,
                 "score": post.score,
                 "url": post.url,
-                "created": datetime.utcfromtimestamp(post.created_utc).strftime('%Y-%m-%d %H:%M:%S'),
+                "created": post_time.strftime('%Y-%m-%d %H:%M:%S'),
                 "comments": []
             }
 
