@@ -1,10 +1,11 @@
 import os
-import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 import praw
 import re
 import csv
 from forex_python.converter import CurrencyRates
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -16,6 +17,9 @@ USER_AGENT = os.getenv('USER_AGENT')
 REFRESH_TOKEN = os.getenv('REFRESH_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
+# Initialize OpenAI API
+client = OpenAI(api_key=OPENAI_API_KEY)
+
 # Initialize Reddit API with your credentials
 reddit = praw.Reddit(
     client_id=CLIENT_ID,
@@ -23,9 +27,6 @@ reddit = praw.Reddit(
     user_agent=USER_AGENT,
     refresh_token=REFRESH_TOKEN
 )
-
-# Initialize OpenAI API
-openai.api_key = OPENAI_API_KEY
 
 # Initialize Currency Converter
 currency_rates = CurrencyRates()
@@ -85,19 +86,44 @@ def get_vague_salary_from_gpt(text):
         f"Text: {text}\n\n"
         "Response: "
     )
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=prompt,
-        max_tokens=100,
-        temperature=0.5
-    )
-    return response.choices[0].text.strip()
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=100,
+            temperature=0.5
+        )
+        return response.choices[0].message.content.strip()
+    except openai.RateLimitError:
+        print("Rate limit exceeded. Waiting for 60 seconds before retrying...")
+        time.sleep(60)
+        return get_vague_salary_from_gpt(text)
+    except openai.OpenAIError as e:
+        print(f"OpenAI API error: {e}")
+        return None
+
+def extract_vague_salary_details(text):
+    specific_patterns = [
+        r"I make twice as much as I did as a teacher",
+        r"I make three times what I used to earn as a janitor",
+        r"My salary is half of what it was when I worked in retail"
+    ]
+    for pattern in specific_patterns:
+        if re.search(pattern, text):
+            return get_vague_salary_from_gpt(text)
+    return None
 
 def scrape_subreddit(subreddit_name, limit=300):
     salary_data = []
     vague_data = []
     subreddit = reddit.subreddit(subreddit_name)
-    for comment in subreddit.comments(limit=limit):
+    comment_count = 0
+    for comment in subreddit.comments(limit=None):
+        if comment_count >= limit:
+            break
         comment_text = comment.body
         print(f"Checking comment: {comment_text}")  # Debugging print
         salary = extract_salary_details(comment_text)
@@ -114,8 +140,9 @@ def scrape_subreddit(subreddit_name, limit=300):
                 'Additional Information': comment.link_permalink,
                 'URL': f"https://reddit.com{comment.permalink}"
             })
+            comment_count += 1
         else:
-            vague_salary = get_vague_salary_from_gpt(comment_text)
+            vague_salary = extract_vague_salary_details(comment_text)
             if vague_salary:
                 additional_details = extract_additional_details(comment_text)
                 vague_data.append({
@@ -128,8 +155,7 @@ def scrape_subreddit(subreddit_name, limit=300):
                     'Additional Information': comment.link_permalink,
                     'URL': f"https://reddit.com{comment.permalink}"
                 })
-        if len(salary_data) >= 300:
-            break
+                comment_count += 1
     return salary_data, vague_data
 
 def save_to_csv(data, filename):
@@ -144,6 +170,6 @@ def save_to_csv(data, filename):
         dict_writer.writerows(data)
 
 # Main script
-explicit_salary_data, vague_salary_data = scrape_subreddit('accounting', limit=1000)
+explicit_salary_data, vague_salary_data = scrape_subreddit('accounting', limit=300)
 save_to_csv(explicit_salary_data, 'explicit_salary_data.csv')
 save_to_csv(vague_salary_data, 'vague_salary_data.csv')
