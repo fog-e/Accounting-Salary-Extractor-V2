@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Data - Victorian Accountant Theme</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            background-color: #f4f4f4;
+            color: #333;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1, h2 {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .post {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .post h3 {
+            margin: 0 0 10px;
+        }
+        .comment {
+            margin: 10px 0 0 20px;
+            padding: 10px;
+            border-left: 2px solid #ccc;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Reddit Data - Victorian Accountant Theme</h1>
+    <div id="posts"></div>
+    <script>
+        fetch('reddit_data.json')
+            .then(response => response.json())
+            .then(data => {
+                const postsContainer = document.getElementById('posts');
+                data.forEach(post => {
+                    const postElement = document.createElement('div');
+                    postElement.classList.add('post');
+                    postElement.innerHTML = `
+                        <h3>${post.title}</h3>
+                        <p>Score: ${post.score}</p>
+                        <p>Posted on: ${post.created}</p>
+                        <a href="${post.url}" target="_blank">Read more</a>
+                        <div class="comments">
+                            <h4>Top Comments:</h4>
+                            ${post.comments.map(comment => `
+                                <div class="comment">
+                                    <p>${comment.body}</p>
+                                    <p>Score: ${comment.score}</p>
+                                    <p>Commented on: ${comment.created}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    postsContainer.appendChild(postElement);
+                });
+            });
+    </script>
+</body>
+</html>
