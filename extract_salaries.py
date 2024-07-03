@@ -7,6 +7,7 @@ import csv
 from forex_python.converter import CurrencyRates
 import time
 from datetime import datetime
+import prawcore
 
 # Load environment variables from .env file
 load_dotenv()
