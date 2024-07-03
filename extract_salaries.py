@@ -110,56 +110,56 @@ def extract_vague_salary_details(text):
     specific_patterns = [
         r"I make twice as much as I did as a teacher",
         r"I make three times what I used to earn as a janitor",
-        r"My salary is half of what it was when I worked in retail",
-        r"I make double what I made as a cashier",
-        r"I make half of what I earned as a manager"
+        r"My salary is half of what it was when I worked in retail"
     ]
     for pattern in specific_patterns:
-        if re.search(pattern, text, re.IGNORECASE):
+        if re.search(pattern, text):
             return get_vague_salary_from_gpt(text)
     return None
 
-def scrape_subreddit(subreddit_name, limit=300):
+def scrape_subreddits(subreddits, limit=300):
     salary_data = []
     vague_data = []
-    subreddit = reddit.subreddit(subreddit_name)
     comment_count = 0
-    for comment in subreddit.comments(limit=None):
-        if comment_count >= limit:
-            break
-        comment_text = comment.body
-        print(f"Checking comment: {comment_text}")  # Debugging print
-        salary = extract_salary_details(comment_text)
-        if salary:
-            print(f"Extracted salary: {salary}")  # Debugging print
-            additional_details = extract_additional_details(comment_text)
-            salary_data.append({
-                'Salary (USD)': salary,
-                'Location': additional_details['Location'],
-                'Experience (Years)': additional_details['Experience (Years)'],
-                'Job Title': additional_details['Job Title'],
-                'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
-                'Salary Source': 'Explicit',
-                'Additional Information': comment.link_permalink,
-                'URL': f"https://reddit.com{comment.permalink}"
-            })
-            comment_count += 1
-        else:
-            vague_salary = extract_vague_salary_details(comment_text)
-            if vague_salary:
-                print(f"Extracted vague salary: {vague_salary}")  # Debugging print
+
+    for subreddit_name in subreddits:
+        subreddit = reddit.subreddit(subreddit_name)
+        for comment in subreddit.comments(limit=None):
+            if comment_count >= limit:
+                break
+            comment_text = comment.body
+            print(f"Checking comment: {comment_text}")  # Debugging print
+            salary = extract_salary_details(comment_text)
+            if salary:
+                print(f"Extracted salary: {salary}")  # Debugging print
                 additional_details = extract_additional_details(comment_text)
-                vague_data.append({
-                    'Vague Salary': vague_salary,
+                salary_data.append({
+                    'Salary (USD)': salary,
                     'Location': additional_details['Location'],
                     'Experience (Years)': additional_details['Experience (Years)'],
                     'Job Title': additional_details['Job Title'],
                     'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
-                    'Salary Source': 'Vague',
+                    'Salary Source': 'Explicit',
                     'Additional Information': comment.link_permalink,
                     'URL': f"https://reddit.com{comment.permalink}"
                 })
                 comment_count += 1
+            else:
+                vague_salary = extract_vague_salary_details(comment_text)
+                if vague_salary:
+                    additional_details = extract_additional_details(comment_text)
+                    vague_data.append({
+                        'Vague Salary': vague_salary,
+                        'Location': additional_details['Location'],
+                        'Experience (Years)': additional_details['Experience (Years)'],
+                        'Job Title': additional_details['Job Title'],
+                        'Date': datetime.utcfromtimestamp(comment.created_utc).strftime('%Y-%m-%d'),
+                        'Salary Source': 'Vague',
+                        'Additional Information': comment.link_permalink,
+                        'URL': f"https://reddit.com{comment.permalink}"
+                    })
+                    comment_count += 1
+
     return salary_data, vague_data
 
 def save_to_csv(data, filename):
@@ -173,7 +173,15 @@ def save_to_csv(data, filename):
         dict_writer.writeheader()
         dict_writer.writerows(data)
 
+# List of subreddits to scrape
+subreddits = [
+    'accounting', 'finance', 'FinancialCareers', 'CareerGuidance', 'JobAdvice', 'PersonalFinance', 'Work',
+    'AskReddit', 'Entrepreneur', 'MBA', 'Salary', 'InsuranceProfessional', 'tax', 'cpa', 'freelance',
+    'big4', 'thebig4accountant', 'accountingfirms', 'taxpros', 'publicaccounting', 'publicaccountants',
+    'fp&a', 'togethercpa', 'antiwork', 'usajobs', 'finra', 'internalaudit'
+]
+
 # Main script
-explicit_salary_data, vague_salary_data = scrape_subreddit('accounting', limit=300)
+explicit_salary_data, vague_salary_data = scrape_subreddits(subreddits, limit=300)
 save_to_csv(explicit_salary_data, 'explicit_salary_data.csv')
 save_to_csv(vague_salary_data, 'vague_salary_data.csv')
