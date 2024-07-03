@@ -7,7 +7,6 @@ import csv
 from forex_python.converter import CurrencyRates
 import time
 from datetime import datetime
-import prawcore  # Add this import to handle prawcore exceptions
 
 # Load environment variables from .env file
 load_dotenv()
@@ -53,17 +52,17 @@ def convert_to_annual_salary(salary, period, currency='USD'):
 
 def extract_salary_details(text):
     patterns = {
-        'hourly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*hour',
-        'weekly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*week',
-        'monthly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*month',
-        'bi-weekly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*bi-week',
-        'yearly': r'\$([0-9]+(\.[0-9]+)?)\s*/\s*year',
-        'annual': r'\$([0-9]+(\.[0-9]+)?)\s*(?:per\s*)?year'
+        'hourly': r'\$([0-9,]+(\.[0-9]+)?)\s*/\s*hour',
+        'weekly': r'\$([0-9,]+(\.[0-9]+)?)\s*/\s*week',
+        'monthly': r'\$([0-9,]+(\.[0-9]+)?)\s*/\s*month',
+        'bi-weekly': r'\$([0-9,]+(\.[0-9]+)?)\s*/\s*bi-week',
+        'yearly': r'\$([0-9,]+(\.[0-9]+)?)\s*/\s*year',
+        'annual': r'\$([0-9,]+(\.[0-9]+)?)\s*(?:per\s*)?year'
     }
     for period, pattern in patterns.items():
         match = re.search(pattern, text)
         if match:
-            salary = float(match.group(1))
+            salary = float(match.group(1).replace(',', ''))
             return convert_to_annual_salary(salary, period)
     return None
 
@@ -98,7 +97,7 @@ def get_vague_salary_from_gpt(text):
             max_tokens=100,
             temperature=0.5
         )
-        return response.choices[0].message.content.strip()
+        return response.choices[0].message['content'].strip()
     except openai.RateLimitError:
         print("Rate limit exceeded. Waiting for 60 seconds before retrying...")
         time.sleep(60)
@@ -121,10 +120,10 @@ def extract_vague_salary_details(text):
 def scrape_subreddits(subreddits, limit=300):
     salary_data = []
     vague_data = []
+    comment_count = 0
     for subreddit_name in subreddits:
         try:
             subreddit = reddit.subreddit(subreddit_name)
-            comment_count = 0
             for comment in subreddit.comments(limit=None):
                 if comment_count >= limit:
                     break
@@ -161,16 +160,16 @@ def scrape_subreddits(subreddits, limit=300):
                         })
                         comment_count += 1
         except prawcore.exceptions.NotFound:
-            print(f"Subreddit {subreddit_name} not found, skipping...")
+            print(f"Subreddit {subreddit_name} not found. Skipping...")
         except prawcore.exceptions.Forbidden:
-            print(f"Subreddit {subreddit_name} is forbidden, skipping...")
+            print(f"Access to subreddit {subreddit_name} is forbidden. Skipping...")
         except Exception as e:
-            print(f"Error processing subreddit {subreddit_name}: {e}")
+            print(f"An error occurred with subreddit {subreddit_name}: {e}. Skipping...")
     return salary_data, vague_data
 
 def save_to_csv(data, filename):
     if not data:
-        print("No salary data found.")  # Debugging print
+        print(f"No data found for {filename}")  # Debugging print
         return
 
     keys = data[0].keys()
@@ -181,14 +180,14 @@ def save_to_csv(data, filename):
 
 # Main script
 subreddits = [
-    "accounting", "finance", "FinancialCareers", "CareerGuidance", "JobAdvice",
-    "PersonalFinance", "Work", "AskReddit", "Entrepreneur", "MBA", "Salary",
-    "InsuranceProfessional", "tax", "cpa", "freelance", "big4", "thebig4accountant",
-    "accountingfirms", "taxpros", "publicaccounting", "publicaccountants", "fpa",
-    "togethercpa", "antiwork", "usajobs", "finra", "internalaudit", "AccountingStudents",
-    "Bookkeeping", "FinancialPlanning", "Investing", "Stocks", "CreditCards", "Budget",
-    "FinancialIndependence", "Consulting", "Business", "SmallBusiness", "Sales",
-    "Marketing", "HumanResources", "Jobs", "Resume", "Interviews"
+    'accounting', 'finance', 'FinancialCareers', 'CareerGuidance', 'JobAdvice',
+    'PersonalFinance', 'Work', 'AskReddit', 'Entrepreneur', 'MBA', 'Salary',
+    'InsuranceProfessional', 'tax', 'cpa', 'freelance', 'big4', 'thebig4accountant',
+    'accountingfirms', 'taxpros', 'publicaccounting', 'publicaccountants', 'fpa',
+    'togethercpa', 'antiwork', 'usajobs', 'finra', 'internalaudit',
+    'AccountingStudents', 'Bookkeeping', 'FinancialPlanning', 'Investing', 'Stocks',
+    'CreditCards', 'Budget', 'FinancialIndependence', 'Consulting', 'Business',
+    'SmallBusiness', 'Sales', 'Marketing', 'HumanResources', 'Jobs', 'Resume', 'Interviews'
 ]
 
 explicit_salary_data, vague_salary_data = scrape_subreddits(subreddits, limit=300)
