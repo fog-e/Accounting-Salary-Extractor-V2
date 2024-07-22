@@ -1,7 +1,7 @@
 # 📊 **Accounting Salary Extractor** 📈
 
 ## **Project Overview**
-Welcome to the **Accounting Salary Extractor** – your one-stop shop for scraping, processing, and analyzing salary data from various accounting-related subreddits. Perfect for when you have too much free time and not enough self-control. Future goal: use this data to manipulate the CPA salary market like RealPage did for rentals (but maybe let's not get ahead of ourselves just yet).
+Scraping, processing, and analyzing salary data from various accounting-related subreddits.
 
 ## **Features** ✨
 - **Data Gathering**: Scrapes posts and replies from a list of subreddits including r/accounting, r/FinancialCareers, r/Salary, and more.

@@ -1,0 +1,39 @@
+body {
+    background-color: #f8f9fa;
+    font-family: 'Times New Roman', Times, serif;
+}
+
+.container {
+    margin-top: 20px;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.card {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background-color: #343a40;
+    color: #fff;
+}
+
+.card-body {
+    background-color: #ffffff;
+}
+
+.card-footer {
+    background-color: #f8f9fa;
+}
+
+.victorian {
+    background-image: url('victorian-background.jpg'); /* Make sure to have this image in your project */
+    background-size: cover;
+    background-position: center;
+    color: #333;
+}

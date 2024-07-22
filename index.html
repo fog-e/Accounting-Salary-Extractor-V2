@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accounting Salary Extractor</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Times New Roman', Times, serif;
+        }
+        .container {
+            margin-top: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background-color: #343a40;
+            color: #fff;
+        }
+        .card-body {
+            background-color: #ffffff;
+        }
+        .card-footer {
+            background-color: #f8f9fa;
+        }
+        .victorian {
+            background-image: url('victorian-background.jpg'); /* Make sure to have this image in your project */
+            background-size: cover;
+            background-position: center;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="victorian">Accounting Salary Extractor</h1>
+        </div>
+        <div id="post-container" class="row">
+            <!-- Posts will be inserted here dynamically -->
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script>
+        // Fetch data from JSON file and display it
+        fetch('reddit_data.json')
+            .then(response => response.json())
+            .then(data => {
+                const postContainer = document.getElementById('post-container');
+                data.forEach(post => {
+                    const card = document.createElement('div');
+                    card.className = 'col-md-4';
+                    card.innerHTML = `
+                        <div class="card victorian">
+                            <div class="card-header">${post.title}</div>
+                            <div class="card-body">
+                                <p>${post.body}</p>
+                            </div>
+                            <div class="card-footer">
+                                <a href="${post.url}" class="btn btn-primary" target="_blank">Read more</a>
+                            </div>
+                        </div>
+                    `;
+                    postContainer.appendChild(card);
+                });
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    </script>
+</body>
+</html>
